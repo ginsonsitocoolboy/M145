@@ -113,3 +113,224 @@ Ich habe von beiden PCs alle Geräte angepingt (PC1, PC2, S1, S2). Die Verbindun
 ### Fazit
 
 Ich habe gelernt, wie man Switches und PCs konfiguriert, IP Adressen setzt und die Verbindung mit ping überprüft.
+
+
+
+## Packet Tracer - Identify MAC and IP Addresses (Doku)
+
+### Ziel
+
+In dieser Übung habe ich den Datenverkehr (PDU) im Simulation Mode analysiert und beobachtet, wie sich MAC und IP Adressen im Netzwerk verhalten.
+
+---
+
+### Vorgehen
+
+Ich habe einen Ping von 172.16.31.5 zu 172.16.31.2 ausgeführt und das Paket Schritt für Schritt verfolgt (PC → Switch → Hub → Ziel-PC). Dabei habe ich bei jedem Gerät die MAC und IP Adressen notiert.
+
+---
+
+### Tabelle (lokale Kommunikation)
+
+| Gerät       | Dest MAC       | Src MAC        | Src IP      | Dest IP     |
+| ----------- | -------------- | -------------- | ----------- | ----------- |
+| 172.16.31.5 | 000C.85CC.1DA7 | 00D0.D311.C788 | 172.16.31.5 | 172.16.31.2 |
+| Switch1     | 000C.85CC.1DA7 | 00D0.D311.C788 | N/A         | N/A         |
+| Hub         | N/A            | N/A            | N/A         | N/A         |
+| 172.16.31.2 | 00D0.D311.C788 | 000C.85CC.1DA7 | 172.16.31.2 | 172.16.31.5 |
+
+---
+
+### Beobachtungen (lokal)
+
+* Die IP Adressen bleiben gleich
+* Die MAC Adressen bleiben im gleichen Netzwerk gleich
+* Der Switch leitet das Paket weiter ohne Änderung
+* Der Hub sendet das Paket an alle Geräte
+* Beim Zielgerät werden die Adressen für die Antwort vertauscht
+
+---
+
+### Remote Kommunikation
+
+Beim Ping zu einem anderen Netzwerk (z.B. 10.10.10.2) habe ich gesehen:
+
+* Die IP Adresse bleibt gleich
+* Die MAC Adresse zeigt zuerst auf den Router (Gateway)
+* Beim Router ändern sich die MAC Adressen
+
+---
+
+### Geräte Verhalten
+
+* Switch: leitet Pakete gezielt weiter
+* Hub: sendet Pakete an alle Ports
+* Router: ändert MAC Adressen zwischen Netzwerken
+
+---
+
+### Reflection 
+
+* Hub verliert keine Daten, sondern verteilt alles
+* Switch repliziert keine falschen Pakete
+* MAC Adressen gelten nur lokal
+* IP Adressen bleiben gleich
+* Beim Ping Reply werden Source und Destination vertauscht
+
+---
+
+### Fazit
+
+Ich habe gelernt, wie Daten im Netzwerk übertragen werden und den Unterschied zwischen MAC und IP Adressen sowie zwischen lokaler und externer Kommunikation verstanden.
+
+
+## Packet Tracer - Subnetting und Basic Connectivity
+
+### Ziel
+
+In dieser Aufgabe wurde das Netzwerk 192.168.0.0/24 in mehrere gleich grosse Subnetze aufgeteilt. Danach wurden Router, Switches und PCs mit den passenden IP Adressen konfiguriert und die Verbindung mit Ping getestet.
+
+---
+
+### Subnetting
+
+Für LAN-A werden mindestens 50 Hosts benötigt, für LAN-B mindestens 40 Hosts. Zusätzlich sollen zwei weitere Subnetze für spätere Erweiterungen frei bleiben. Deshalb werden insgesamt mindestens 4 Subnetze benötigt.
+
+Als passende Subnetzmaske wurde /26 gewählt.
+
+* Subnetzmaske: 255.255.255.192
+* Hosts pro Subnetz: 62
+* Anzahl Subnetze: 4
+
+| Subnetz   | Netzwerkadresse  | Hostbereich                   | Broadcast     |
+| --------- | ---------------- | ----------------------------- | ------------- |
+| LAN-A     | 192.168.0.0/26   | 192.168.0.1 - 192.168.0.62    | 192.168.0.63  |
+| LAN-B     | 192.168.0.64/26  | 192.168.0.65 - 192.168.0.126  | 192.168.0.127 |
+| Reserve 1 | 192.168.0.128/26 | 192.168.0.129 - 192.168.0.190 | 192.168.0.191 |
+| Reserve 2 | 192.168.0.192/26 | 192.168.0.193 - 192.168.0.254 | 192.168.0.255 |
+
+---
+
+### Verwendete IP Adressen
+
+| Gerät          | Interface | IP Adresse    | Subnetzmaske    | Default Gateway |
+| -------------- | --------- | ------------- | --------------- | --------------- |
+| CustomerRouter | G0/0      | 192.168.0.1   | 255.255.255.192 | N/A             |
+| CustomerRouter | G0/1      | 192.168.0.65  | 255.255.255.192 | N/A             |
+| CustomerRouter | S0/1/0    | 209.165.201.2 | 255.255.255.252 | N/A             |
+| LAN-A Switch   | VLAN 1    | 192.168.0.2   | 255.255.255.192 | 192.168.0.1     |
+| LAN-B Switch   | VLAN 1    | 192.168.0.66  | 255.255.255.192 | 192.168.0.65    |
+| PC-A           | NIC       | 192.168.0.62  | 255.255.255.192 | 192.168.0.1     |
+| PC-B           | NIC       | 192.168.0.126 | 255.255.255.192 | 192.168.0.65    |
+
+---
+
+### Router Konfiguration
+
+Auf dem CustomerRouter wurden zuerst Hostname und Passwörter gesetzt. Danach wurden die Interfaces G0/0 und G0/1 mit den IP Adressen der beiden LANs konfiguriert und aktiviert.
+
+Verwendete Befehle:
+
+```bash
+enable
+configure terminal
+hostname CustomerRouter
+enable secret Class123
+line console 0
+password Cisco123
+login
+exit
+
+interface g0/0
+ip address 192.168.0.1 255.255.255.192
+no shutdown
+exit
+
+interface g0/1
+ip address 192.168.0.65 255.255.255.192
+no shutdown
+exit
+
+end
+copy running-config startup-config
+```
+
+---
+
+### Switch Konfiguration
+
+Auf beiden LAN Switches wurde VLAN 1 als Management Interface konfiguriert. Zusätzlich wurde jeweils das richtige Default Gateway gesetzt.
+
+LAN-A Switch:
+
+```bash
+enable
+configure terminal
+interface vlan 1
+ip address 192.168.0.2 255.255.255.192
+no shutdown
+exit
+ip default-gateway 192.168.0.1
+end
+copy running-config startup-config
+```
+
+LAN-B Switch:
+
+```bash
+enable
+configure terminal
+interface vlan 1
+ip address 192.168.0.66 255.255.255.192
+no shutdown
+exit
+ip default-gateway 192.168.0.65
+end
+copy running-config startup-config
+```
+
+---
+
+### PC Konfiguration
+
+Die PCs wurden über Desktop → IP Configuration konfiguriert.
+
+PC-A:
+
+* IP Adresse: 192.168.0.62
+* Subnetzmaske: 255.255.255.192
+* Default Gateway: 192.168.0.1
+
+PC-B:
+
+* IP Adresse: 192.168.0.126
+* Subnetzmaske: 255.255.255.192
+* Default Gateway: 192.168.0.65
+
+---
+
+### Verbindungstest
+
+Zum Schluss wurde die Verbindung mit Ping überprüft.
+
+Von PC-A:
+
+```bash
+ping 192.168.0.1
+ping 192.168.0.126
+```
+
+Von PC-B:
+
+```bash
+ping 192.168.0.65
+ping 192.168.0.62
+```
+
+Die Pings zum eigenen Gateway und zwischen PC-A und PC-B waren erfolgreich. Damit ist die Grundkonfiguration korrekt.
+
+---
+
+### Fazit
+
+Das Netzwerk wurde in vier /26 Subnetze aufgeteilt. Zwei Subnetze wurden für LAN-A und LAN-B verwendet, zwei bleiben für spätere Erweiterungen frei. Router, Switches und PCs wurden passend adressiert und die Verbindung wurde erfolgreich getestet.
