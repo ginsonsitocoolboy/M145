@@ -334,3 +334,434 @@ Die Pings zum eigenen Gateway und zwischen PC-A und PC-B waren erfolgreich. Dami
 ### Fazit
 
 Das Netzwerk wurde in vier /26 Subnetze aufgeteilt. Zwei Subnetze wurden für LAN-A und LAN-B verwendet, zwei bleiben für spätere Erweiterungen frei. Router, Switches und PCs wurden passend adressiert und die Verbindung wurde erfolgreich getestet.
+
+
+## Packet Tracer - VLAN Configuration
+
+### Ziel
+
+In dieser Übung wurden VLANs auf mehreren Switches erstellt, benannt und den richtigen Ports zugewiesen. Danach wurde getestet, ob PCs im gleichen VLAN miteinander kommunizieren können.
+
+---
+
+### VLANs erstellen
+
+Auf S1, S2 und S3 wurden die gleichen VLANs erstellt:
+
+| VLAN | Name              |
+| ---- | ----------------- |
+| 10   | Faculty/Staff     |
+| 20   | Students          |
+| 30   | Guest(Default)    |
+| 99   | Management&Native |
+| 150  | VOICE             |
+
+Zur Kontrolle wurde der Befehl verwendet:
+
+```bash
+show vlan brief
+```
+
+---
+
+### Ports zuweisen
+
+Auf S2 und S3 wurden die aktiven Ports den passenden VLANs zugewiesen:
+
+| Port  | VLAN    | Zweck         |
+| ----- | ------- | ------------- |
+| F0/11 | VLAN 10 | Faculty/Staff |
+| F0/18 | VLAN 20 | Students      |
+| F0/6  | VLAN 30 | Guest         |
+
+Die Ports wurden als Access Ports konfiguriert.
+
+---
+
+### Voice VLAN
+
+Auf S3 wurde zusätzlich auf F0/11 das Voice VLAN 150 konfiguriert, weil dort ein IP Phone angeschlossen ist. Der PC bleibt im VLAN 10, das Telefon verwendet VLAN 150.
+
+---
+
+### Verbindungstest
+
+Danach wurde ein Ping von PC1 zu PC4 getestet. Beide PCs sind im VLAN 10, aber der Ping war nicht erfolgreich.
+
+Der Grund ist, dass PC1 und PC4 an unterschiedlichen Switches angeschlossen sind. Die Verbindung zwischen den Switches ist noch kein Trunk und transportiert deshalb VLAN 10 nicht. Der Port Gig0/1 ist noch in VLAN 1.
+
+---
+
+### Lösung
+
+Damit der Ping funktionieren kann, müssen die Verbindungen zwischen den Switches als Trunk Ports konfiguriert werden. Erst dann können mehrere VLANs zwischen den Switches übertragen werden.
+
+---
+
+### Fazit
+
+Ich habe gelernt, wie man VLANs erstellt, Ports VLANs zuweist und warum VLANs über mehrere Switches nur mit Trunk Ports funktionieren.
+
+## Packet Tracer - Configure Trunks
+
+### Ziel
+
+In dieser Übung wurden Trunk Ports zwischen den Switches konfiguriert, damit mehrere VLANs über die Switch-Verbindungen übertragen werden können.
+
+---
+
+### Ausgangslage
+
+Die VLANs waren bereits auf den Switches vorhanden. Auf S2 und S3 waren die PC Ports den richtigen VLANs zugewiesen:
+
+| VLAN | PCs         | Ports |
+| ---- | ----------- | ----- |
+| 10   | PC1 und PC4 | F0/11 |
+| 20   | PC2 und PC5 | F0/18 |
+| 30   | PC3 und PC6 | F0/6  |
+
+Vor der Trunk Konfiguration konnten PCs im gleichen VLAN auf verschiedenen Switches nicht miteinander kommunizieren. Der Grund war, dass die Verbindungen zwischen den Switches noch normale Access Ports in VLAN 1 waren.
+
+---
+
+### Trunk Konfiguration auf S1
+
+Auf S1 wurden die Ports G0/1 und G0/2 als Trunk Ports konfiguriert. Zusätzlich wurde VLAN 99 als Native VLAN gesetzt.
+
+```bash
+enable
+configure terminal
+interface range g0/1 - 2
+switchport mode trunk
+switchport trunk native vlan 99
+end
+```
+
+Nach dieser Konfiguration erschien zuerst eine Native VLAN Mismatch Meldung, weil S2 und S3 noch VLAN 1 als Native VLAN verwendeten.
+
+---
+
+### Native VLAN auf S2 und S3 korrigieren
+
+Damit alle Switches dasselbe Native VLAN verwenden, wurde VLAN 99 auch auf den Trunk Ports von S2 und S3 gesetzt.
+
+S2:
+
+```bash
+enable
+configure terminal
+interface g0/1
+switchport trunk native vlan 99
+end
+```
+
+S3:
+
+```bash
+enable
+configure terminal
+interface g0/2
+switchport trunk native vlan 99
+end
+```
+
+---
+
+### Kontrolle
+
+Die Trunk Konfiguration wurde mit folgendem Befehl überprüft:
+
+```bash
+show interface trunk
+```
+
+Dabei wurde kontrolliert, ob die Trunk Ports aktiv sind und ob VLAN 99 als Native VLAN eingetragen ist.
+
+Zusätzlich kann man mit folgendem Befehl prüfen, ob der Port wirklich als Trunk arbeitet:
+
+```bash
+show interface g0/1 switchport
+```
+
+---
+
+### Verbindungstest
+
+Nach der Trunk Konfiguration konnten PCs im gleichen VLAN wieder miteinander kommunizieren:
+
+* PC1 kann PC4 erreichen
+* PC2 kann PC5 erreichen
+* PC3 kann PC6 erreichen
+
+Pings zwischen verschiedenen VLANs funktionieren nicht, weil dafür ein Router oder Layer 3 Switch nötig wäre.
+
+---
+
+### Antworten auf die Fragen
+
+**Warum funktionieren Pings trotz Native VLAN Mismatch zuerst teilweise?**
+Die VLANs 10, 20 und 30 werden als getaggter Traffic über den Trunk übertragen. Die Native VLAN Mismatch Meldung betrifft vor allem ungetaggten Traffic.
+
+**Welche VLANs dürfen über den Trunk?**
+Standardmässig sind die VLANs 1 bis 1005 erlaubt. Damit können auch VLAN 10, 20, 30, 99 und 150 über den Trunk übertragen werden.
+
+**Warum ist G0/1 auf S2 nicht mehr VLAN 1 zugeordnet?**
+G0/1 ist jetzt ein Trunk Port. Ein Trunk Port ist kein normaler Access Port mehr, sondern transportiert mehrere VLANs gleichzeitig.
+
+---
+
+### Fazit
+
+Ich habe gelernt, dass VLANs über mehrere Switches nur funktionieren, wenn die Switch-Verbindungen als Trunk Ports konfiguriert sind. Ausserdem muss das Native VLAN auf beiden Seiten eines Trunks gleich sein.
+
+## Packet Tracer - Implement VLANs and Trunking
+
+### Ziel
+
+In dieser Übung wurden VLANs erstellt, Access Ports konfiguriert und Trunk Verbindungen zwischen den Switches eingerichtet. Zusätzlich wurde ein Voice VLAN und ein Management VLAN konfiguriert.
+
+---
+
+### VLAN Konfiguration
+
+Auf allen drei Switches wurden folgende VLANs erstellt:
+
+| VLAN | Name       |
+| ---- | ---------- |
+| 10   | Admin      |
+| 20   | Accounts   |
+| 30   | HR         |
+| 40   | Voice      |
+| 99   | Management |
+| 100  | Native     |
+
+Die VLAN Konfiguration wurde mit folgendem Befehl überprüft:
+
+```bash
+show vlan brief
+```
+
+---
+
+### Access Ports konfigurieren
+
+Auf SWB und SWC wurden die Ports den passenden VLANs zugewiesen.
+
+| Port | VLAN    |
+| ---- | ------- |
+| F0/1 | VLAN 10 |
+| F0/2 | VLAN 20 |
+| F0/3 | VLAN 30 |
+
+Zusätzlich wurde auf SWC der Port F0/4 für PC7 in VLAN 10 konfiguriert.
+
+---
+
+### Voice VLAN konfigurieren
+
+Da an SWC F0/4 zusätzlich ein IP Telefon angeschlossen ist, wurde dort das Voice VLAN 40 gesetzt.
+
+```bash
+interface f0/4
+switchport voice vlan 40
+```
+
+Dadurch kann derselbe Port gleichzeitig Datenverkehr für den PC und Sprachverkehr für das Telefon transportieren.
+
+---
+
+### Management VLAN konfigurieren
+
+Auf allen Switches wurde VLAN 99 als Management VLAN verwendet.
+
+| Switch | IP Adresse     |
+| ------ | -------------- |
+| SWA    | 192.168.99.252 |
+| SWB    | 192.168.99.253 |
+| SWC    | 192.168.99.254 |
+
+Die Management Interfaces wurden über Interface VLAN 99 konfiguriert.
+
+---
+
+### Statischer Trunk
+
+Zwischen SWA und SWB wurde ein statischer Trunk eingerichtet.
+
+```bash
+interface g0/1
+switchport mode trunk
+switchport nonegotiate
+switchport trunk native vlan 100
+```
+
+Dabei wurde DTP deaktiviert und VLAN 100 als Native VLAN gesetzt.
+
+---
+
+### Dynamischer Trunk
+
+Zwischen SWA und SWC wurde ein dynamischer Trunk eingerichtet.
+
+```bash
+interface g0/2
+switchport mode dynamic desirable
+switchport trunk native vlan 100
+```
+
+Dadurch konnte automatisch ein Trunk mit SWC ausgehandelt werden.
+
+---
+
+### Kontrolle
+
+Die Trunk Konfiguration wurde mit folgendem Befehl überprüft:
+
+```bash
+show interfaces trunk
+```
+
+Zusätzlich wurde mit Ping getestet, ob Geräte im gleichen VLAN miteinander kommunizieren können.
+
+Beispiele:
+
+* PC1 kann PC4 und PC7 erreichen
+* PC2 kann PC5 erreichen
+* PC3 kann PC6 erreichen
+
+Pings zwischen unterschiedlichen VLANs funktionieren nicht, da kein Routing zwischen den VLANs konfiguriert wurde.
+
+---
+
+### Fazit
+
+Ich habe gelernt, wie VLANs erstellt und Access Ports zugewiesen werden. Ausserdem habe ich statische und dynamische Trunks konfiguriert und verstanden, wie VLAN Verkehr zwischen mehreren Switches übertragen wird.
+
+
+## Packet Tracer - Inter-VLAN Routing Challenge
+
+### Ziel
+
+In dieser Übung wurde Inter-VLAN Routing mit einem Router-on-a-Stick aufgebaut. Dazu wurden VLANs erstellt, Access Ports konfiguriert, ein Trunk eingerichtet und auf dem Router Subinterfaces für die einzelnen VLANs erstellt.
+
+---
+
+### VLAN Konfiguration
+
+Auf dem Switch S1 wurden folgende VLANs erstellt:
+
+| VLAN | Name           |
+| ---- | -------------- |
+| 10   | Faculty/Staff  |
+| 20   | Students       |
+| 30   | Guest(Default) |
+| 88   | Native         |
+| 99   | Management     |
+
+Die VLANs wurden anschliessend den passenden Ports zugewiesen.
+
+| VLAN    | Ports         |
+| ------- | ------------- |
+| VLAN 10 | F0/11 - F0/17 |
+| VLAN 20 | F0/18 - F0/24 |
+| VLAN 30 | F0/6 - F0/10  |
+
+Alle Ports wurden als Access Ports konfiguriert.
+
+---
+
+### Management VLAN
+
+Für die Verwaltung des Switches wurde VLAN 99 verwendet.
+
+Die virtuelle Management Schnittstelle wurde wie folgt konfiguriert:
+
+```bash
+interface vlan 99
+ip address 172.17.99.10 255.255.255.0
+no shutdown
+```
+
+Zusätzlich wurde das Default Gateway gesetzt:
+
+```bash
+ip default-gateway 172.17.99.1
+```
+
+---
+
+### Trunk Konfiguration
+
+Die Verbindung zwischen S1 und R1 wurde als statischer Trunk konfiguriert.
+
+```bash
+interface g0/1
+switchport mode trunk
+switchport trunk native vlan 88
+```
+
+Dabei wurde VLAN 88 als Native VLAN verwendet.
+
+---
+
+### Nicht verwendete Ports deaktivieren
+
+Nicht benutzte Ports wurden aus Sicherheitsgründen deaktiviert.
+
+```bash
+interface range f0/1 - 5
+shutdown
+```
+
+Zusätzlich wurde G0/2 deaktiviert.
+
+---
+
+### Router-on-a-Stick Konfiguration
+
+Auf R1 wurden mehrere Subinterfaces erstellt.
+
+| Interface | VLAN    | IP Adresse  |
+| --------- | ------- | ----------- |
+| G0/1.10   | VLAN 10 | 172.17.10.1 |
+| G0/1.20   | VLAN 20 | 172.17.20.1 |
+| G0/1.30   | VLAN 30 | 172.17.30.1 |
+| G0/1.88   | VLAN 88 | 172.17.88.1 |
+| G0/1.99   | VLAN 99 | 172.17.99.1 |
+
+Beispiel einer Subinterface Konfiguration:
+
+```bash
+interface g0/1.10
+encapsulation dot1Q 10
+ip address 172.17.10.1 255.255.255.0
+```
+
+Für das Native VLAN wurde folgende Konfiguration verwendet:
+
+```bash
+interface g0/1.88
+encapsulation dot1Q 88 native
+ip address 172.17.88.1 255.255.255.0
+```
+
+---
+
+### Verbindungstest
+
+Nach der Konfiguration wurden verschiedene Ping Tests durchgeführt.
+
+Beispiele:
+
+* PC1 konnte PC2 und PC3 erreichen
+* Die PCs konnten den Switch S1 erreichen
+* Die PCs konnten den Router R1 erreichen
+* Die VLANs konnten über den Router miteinander kommunizieren
+
+Dadurch wurde bestätigt, dass das Inter-VLAN Routing korrekt funktioniert.
+
+---
+
+### Fazit
+
+Ich habe gelernt, wie Inter-VLAN Routing mit Router-on-a-Stick funktioniert. Ausserdem habe ich VLANs, Trunks und Router Subinterfaces konfiguriert und getestet.
